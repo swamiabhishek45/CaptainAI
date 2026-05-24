@@ -82,6 +82,24 @@ export const Thala_Strategist = new LlmAgent({
   includeContents: 'none'
 });
 
+export function createThalaStrategistAgent(cachedContextId: string | null): LlmAgent {
+  return new LlmAgent({
+    name: 'Thala_Strategist',
+    model: 'gemini-2.5-flash',
+    instruction: 'You are an elite, ice-cool cricket captain (Dhoni/Rohit mindset). Analyze the MatchState, cached IPL history, venue baselines, and any visual pitch inspection. Propose the definitive next tactical move with authentic, sharp cricketing strategy.',
+    tools: [calculateWinProbabilityTool],
+    generateContentConfig: cachedContextId ? { cachedContent: cachedContextId } : undefined,
+    includeContents: 'none'
+  });
+}
+
+export const Pitch_Vision_Analyst = new LlmAgent({
+  name: 'Pitch_Vision_Analyst',
+  model: 'gemini-2.5-flash',
+  instruction: 'You are a cricket broadcast vision analyst. Extract visible match variables from screenshots, scorecards, field settings, pitch texture, cracks, grass cover, surface dampness, and any tactical implications. Be concise and concrete.',
+  includeContents: 'none'
+});
+
 export const Gauti_Advocate = new LlmAgent({
   name: 'Gauti_Advocate',
   model: 'gemini-2.5-flash',
@@ -97,6 +115,7 @@ export const Captain_Cool_Consensus = new LlmAgent({
 });
 
 export const cricketStrategyAgents = [
+  Pitch_Vision_Analyst,
   Thala_Strategist,
   Gauti_Advocate,
   Captain_Cool_Consensus
