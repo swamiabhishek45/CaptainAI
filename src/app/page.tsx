@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { Activity, Bot, ChevronRight, FileJson, Loader2, Trophy } from 'lucide-react';
-import { AgentTimeline } from '@/components/AgentTimeline';
 import { Metric } from '@/components/Metric';
 import { sampleMatchState } from '@/lib/sample-match';
-import type { MatchState, StrategyResponse } from '@/types/cricket';
+import type { MatchState, StrategyApiResponse } from '@/types/cricket';
 
 export default function Home() {
   const [matchState, setMatchState] = useState<MatchState>(sampleMatchState);
-  const [strategy, setStrategy] = useState<StrategyResponse | null>(null);
+  const [strategy, setStrategy] = useState<StrategyApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,17 +119,17 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">GDG Cloud Pune APL Hackathon Console</p>
-                <h2 className="mt-1 text-2xl font-semibold">Visible multi-agent tactical debate</h2>
+                <h2 className="mt-1 text-2xl font-semibold">ADK multi-agent tactical loop</h2>
               </div>
               <div className="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs text-muted">
                 <FileJson size={14} />
-                {strategy?.traceId ?? '.antigravity trace pending'}
+                {strategy ? 'strict JSON ready' : 'strategy pending'}
               </div>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-4">
-              <Metric label="Flash Agents" value="8 turns" tone="accent" />
-              <Metric label="Final Model" value="2.5 Pro" />
-              <Metric label="ADK Agents" value={strategy?.usedAdk ? String(strategy.adkAgentCount) : 'Ready'} />
+              <Metric label="Flash Agents" value="2 agents" tone="accent" />
+              <Metric label="Final Model" value="Gemini 2.5 Pro" />
+              <Metric label="ADK Agents" value="3 named" />
               <Metric label="Mode" value={process.env.NEXT_PUBLIC_DEMO_MODE ? 'Demo' : 'Live API'} />
             </div>
           </div>
@@ -142,16 +141,14 @@ export default function Home() {
                   <ChevronRight size={16} />
                   Captain Cool Final Call
                 </div>
-                <p className="mt-3 text-lg font-semibold leading-7">{strategy.decision.call}</p>
+                <p className="mt-3 text-lg font-semibold leading-7">{strategy.finalDecision}</p>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <Metric label="Batting" value={strategy.decision.battingPlan} />
-                  <Metric label="Bowling" value={strategy.decision.bowlingPlan} />
-                  <Metric label="Field" value={strategy.decision.fieldPlan} />
-                  <Metric label="Impact" value={strategy.decision.impactPlayerPlan} />
+                  <Metric label="Thala Proposal" value={strategy.proposal} />
+                  <Metric label="Gauti Dissent" value={strategy.dissent} />
+                  <Metric label="Win Probability" value={`${strategy.winProbability}%`} tone="accent" />
+                  <Metric label="Response Shape" value="proposal, dissent, finalDecision, winProbability" />
                 </div>
-                <p className="mt-4 text-sm text-ink/75">{strategy.decision.winProbabilitySwing}</p>
               </div>
-              <AgentTimeline turns={strategy.turns} />
             </>
           ) : (
             <div className="grid min-h-[520px] place-items-center rounded-md border border-dashed border-white/15 bg-white/[0.02] p-8 text-center">

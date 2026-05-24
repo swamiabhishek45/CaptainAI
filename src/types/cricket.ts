@@ -53,3 +53,10 @@ export interface StrategyResponse {
   usedAdk: boolean;
   adkAgentCount: number;
 }
+
+export interface StrategyApiResponse {
+  proposal: string;
+  dissent: string;
+  finalDecision: string;
+  winProbability: number;
+}

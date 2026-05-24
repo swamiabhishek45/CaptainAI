@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
+import { InMemorySessionService, Runner, isFinalResponse, stringifyContent } from '@google/adk';
 import { z } from 'zod';
-import { orchestrateStrategy } from '@/lib/strategy-engine';
+import {
+  Captain_Cool_Consensus,
+  Gauti_Advocate,
+  Thala_Strategist,
+  calculateWinProbability
+} from '@/lib/agents';
+import type { MatchState } from '@/types/cricket';
 
 const matchStateSchema = z.object({
   innings: z.union([z.literal(1), z.literal(2)]),
@@ -21,6 +28,58 @@ const matchStateSchema = z.object({
   impactPlayerAvailable: z.boolean()
 });
 
+type StrategyApiResponse = {
+  proposal: string;
+  dissent: string;
+  finalDecision: string;
+  winProbability: number;
+};
+
+async function runAgent(agent: typeof Thala_Strategist, prompt: string): Promise<string> {
+  const runner = new Runner({
+    appName: 'captain-cool-strategy',
+    agent,
+    sessionService: new InMemorySessionService()
+  });
+
+  let finalText = '';
+  for await (const event of runner.runEphemeral({
+    userId: 'match-ops',
+    newMessage: {
+      role: 'user',
+      parts: [{ text: prompt }]
+    }
+  })) {
+    const text = stringifyContent(event).trim();
+    if (text) {
+      finalText = text;
+    }
+    if (isFinalResponse(event) && text) {
+      finalText = text;
+    }
+  }
+
+  if (!finalText) {
+    throw new Error(`${agent.name} did not produce a response.`);
+  }
+
+  return finalText;
+}
+
+function fallbackStrategy(matchState: MatchState, winProbability: number): StrategyApiResponse {
+  const bestBowler = Object.entries(matchState.bowlersRemainingOvers)
+    .sort(([, a], [, b]) => b - a)[0]?.[0] ?? 'the highest-control bowler';
+  const chasePressure = matchState.target
+    ? `${Math.max(matchState.target - matchState.currentScore, 0)} needed with ${Math.max(120 - matchState.over * 6 - matchState.ball, 0)} balls left`
+    : `${matchState.currentScore}/${matchState.wickets} after ${matchState.over}.${matchState.ball}`;
+
+  const proposal = `Use ${bestBowler} immediately with a hard-length, pace-off plan into the pitch. Protect long-on, deep midwicket, deep square, third, and fine leg, while keeping catching cover active. Match equation: ${chasePressure}. Win probability: ${winProbability}%.`;
+  const dissent = `This can backfire if the surface skids under dew or the batter premeditates the leg-side boundary. A predictable pace-off plan also gives ${matchState.batsmanOnStrike} time to set early and access the shorter side.`;
+  const finalDecision = `Operational order: ${bestBowler} bowls the next over. First three balls are hard length into the pitch with the leg-side boundary protected; if the batter shuffles, go wide yorker with third and deep point alive. Keep Impact Player ${matchState.impactPlayerAvailable ? 'ready for the next wicket or death-over role' : 'out of the plan because it is unavailable'}.`;
+
+  return { proposal, dissent, finalDecision, winProbability };
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = matchStateSchema.safeParse(body);
@@ -32,6 +91,47 @@ export async function POST(request: Request) {
     );
   }
 
-  const strategy = await orchestrateStrategy(parsed.data);
-  return NextResponse.json(strategy);
+  const matchState = parsed.data;
+  const { winProbabilityPercentage } = calculateWinProbability(matchState);
+
+  if (!process.env.GOOGLE_API_KEY) {
+    return NextResponse.json(fallbackStrategy(matchState, winProbabilityPercentage));
+  }
+
+  try {
+    const proposal = await runAgent(
+      Thala_Strategist,
+      `MatchState: ${JSON.stringify(matchState)}
+Live calculateWinProbability tool output: ${JSON.stringify({ winProbabilityPercentage })}
+
+Produce only the initial tactical concept as plain text. Be specific: name the bowler/change, field, matchup, and trigger.`
+    );
+
+    const dissent = await runAgent(
+      Gauti_Advocate,
+      `MatchState: ${JSON.stringify(matchState)}
+Thala_Strategist exact proposal: ${proposal}
+
+Produce only the dissenting viewpoint as plain text. Attack the proposal using pitch behavior, matchup risk, phase pressure, and execution risk.`
+    );
+
+    const finalDecision = await runAgent(
+      Captain_Cool_Consensus,
+      `MatchState: ${JSON.stringify(matchState)}
+Win probability percentage: ${winProbabilityPercentage}
+Thala_Strategist proposal: ${proposal}
+Gauti_Advocate dissent: ${dissent}
+
+Produce only the final operational match order as plain text. Resolve the friction and give the exact next tactical command.`
+    );
+
+    return NextResponse.json({
+      proposal,
+      dissent,
+      finalDecision,
+      winProbability: winProbabilityPercentage
+    } satisfies StrategyApiResponse);
+  } catch {
+    return NextResponse.json(fallbackStrategy(matchState, winProbabilityPercentage));
+  }
 }
